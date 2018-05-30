@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2007-2016 Giampaolo Rodola' <g.rodola@gmail.com>.
+# Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
@@ -344,7 +344,7 @@ class _SharedAuthorizerTests(object):
         # make sure other settings keep using default values
         self.assertEqual(auth.get_home_dir(user),
                          self.get_current_user_homedir())
-        self.assertEqual(auth.get_perms(user), "elradfmw")
+        self.assertEqual(auth.get_perms(user), "elradfmwMT")
         self.assertEqual(auth.get_msg_login(user), "Login successful.")
         self.assertEqual(auth.get_msg_quit(user), "Goodbye.")
 
@@ -357,7 +357,7 @@ class _SharedAuthorizerTests(object):
         # make sure other settings keep using default values
         # self.assertEqual(auth.get_home_dir(user),
         #                  self.get_current_user_homedir())
-        self.assertEqual(auth.get_perms(user), "elradfmw")
+        self.assertEqual(auth.get_perms(user), "elradfmwMT")
         self.assertEqual(auth.get_msg_login(user), "Login successful.")
         self.assertEqual(auth.get_msg_quit(user), "Goodbye.")
 
@@ -369,7 +369,7 @@ class _SharedAuthorizerTests(object):
         # make sure other settings keep using default values
         self.assertEqual(auth.get_home_dir(user),
                          self.get_current_user_homedir())
-        # self.assertEqual(auth.get_perms(user), "elradfmw")
+        # self.assertEqual(auth.get_perms(user), "elradfmwMT")
         self.assertEqual(auth.get_msg_login(user), "Login successful.")
         self.assertEqual(auth.get_msg_quit(user), "Goodbye.")
 
@@ -382,7 +382,7 @@ class _SharedAuthorizerTests(object):
         # make sure other settings keep using default values
         self.assertEqual(auth.get_home_dir(user),
                          self.get_current_user_homedir())
-        self.assertEqual(auth.get_perms(user), "elradfmw")
+        self.assertEqual(auth.get_perms(user), "elradfmwMT")
         # self.assertEqual(auth.get_msg_login(user), "Login successful.")
         # self.assertEqual(auth.get_msg_quit(user), "Goodbye.")
 

@@ -58,7 +58,7 @@ Users
 
   >>> from pyftpdlib.authorizers import DummyAuthorizer
   >>> authorizer = DummyAuthorizer()
-  >>> authorizer.add_user('user', 'password', '/home/user', perm='elradfmw')
+  >>> authorizer.add_user('user', 'password', '/home/user', perm='elradfmwMT')
   >>> authorizer.add_anonymous('/home/nobody')
 
   .. method:: add_user(username, password, homedir, perm="elr", msg_login="Login successful.", msg_quit="Goodbye.")
@@ -83,7 +83,8 @@ Users
     - ``"f"`` = rename file or directory (RNFR, RNTO commands)
     - ``"m"`` = create directory (MKD command)
     - ``"w"`` = store a file to the server (STOR, STOU commands)
-    - ``"M"`` = change mode/permission (SITE CHMOD command) *New in 0.7.0*
+    - ``"M"`` = change file mode / permission (SITE CHMOD command) *New in 0.7.0*
+    - ``"T"`` = change file modification time (SITE MFMT command) *New in 1.5.3*
 
     Optional *msg_login* and *msg_quit* arguments can be specified to provide
     customized response strings when user log-in and quit. The *perm* argument
@@ -354,10 +355,20 @@ Server (acceptor)
 
   *Changed in version 1.2.0: Added backlog argument.*
 
+  *Changed in version 1.5.4: Support for the context manager protocol was
+  added. Exiting the context manager is equivalent to calling
+  :meth:`close_all`.*
+
   >>> from pyftpdlib.servers import FTPServer
   >>> address = ('127.0.0.1', 21)
   >>> server = FTPServer(address, handler)
   >>> server.serve_forever()
+
+  It can also be used as a context manager. Exiting the context manager is
+  equivalent to calling :meth:`close_all`.
+
+  >>> with FTPServer(address, handler) as server:
+  ...     server.serve_forever()
 
   .. data:: max_cons
 
@@ -378,21 +389,23 @@ Server (acceptor)
 
   .. method:: close()
 
-    Stop serving without disconnecting currently connected clients.
+    Stop accepting connections without disconnecting currently connected
+    clients.
 
   .. method:: close_all()
 
-    Stop serving disconnecting also the currently connected clients.
+    Tell :meth:`server_forever` loop to stop and wait until it does.
+    Also all connected clients will be closed.
 
     *Changed in version 1.0.0: 'map' and 'ignore_all' parameters were removed.*
 
 Filesystem
 ==========
 
-.. class:: pyftpdlib.filesystems.FilesystemError()
+.. class:: pyftpdlib.filesystems.FilesystemError
 
   Exception class which can be raised from within
-  :class:`pyftpdlib.filesystems.AbstractedFS`in order to send custom error
+  :class:`pyftpdlib.filesystems.AbstractedFS` in order to send custom error
   messages to client. *New in version 1.0.0*
 
 .. class:: pyftpdlib.filesystems.AbstractedFS(root, cmd_channel)
@@ -560,10 +573,10 @@ Extended handlers
 Extended authorizers
 --------------------
 
-.. class:: pyftpdlib.authorizers.UnixAuthorizer(global_perm="elradfmw", allowed_users=None, rejected_users=None, require_valid_shell=True, anonymous_user=None, ,msg_login="Login successful.", msg_quit="Goodbye.")
+.. class:: pyftpdlib.authorizers.UnixAuthorizer(global_perm="elradfmwMT", allowed_users=None, rejected_users=None, require_valid_shell=True, anonymous_user=None, ,msg_login="Login successful.", msg_quit="Goodbye.")
 
-  Authorizer which nteracts with UNIX password database. Users are no longer
-  supposed to be explicitly added as when using
+  Authorizer which interacts with the UNIX password database. Users are no
+  longer supposed to be explicitly added as when using
   :class:`pyftpdlib.authorizers.DummyAuthorizer`. All FTP users are the same
   defined on the UNIX system so if you access on your system by using
   ``"john"`` as username and ``"12345"`` as password those same credentials can
@@ -575,7 +588,7 @@ Extended authorizers
   permissions are granted by default in the class constructors.
 
   *global_perm* is a series of letters referencing the users permissions;
-  defaults to "elradfmw" which means full read and write access for everybody
+  defaults to "elradfmwMT" which means full read and write access for everybody
   (except anonymous). *allowed_users* and *rejected_users* options expect a
   list of users which are accepted or rejected for authenticating against the
   FTP server; defaults both to ``[]`` (no restrictions). *require_valid_shell*
@@ -602,7 +615,7 @@ Extended authorizers
     >>> auth = UnixAuthorizer(require_valid_shell=False)
     >>> auth.override_user("matt", password="foo", perm="elr")
 
-.. class:: pyftpdlib.authorizers.WindowsAuthorizer(global_perm="elradfmw", allowed_users=None, rejected_users=None, anonymous_user=None, anonymous_password="", msg_login="Login successful.", msg_quit="Goodbye.")
+.. class:: pyftpdlib.authorizers.WindowsAuthorizer(global_perm="elradfmwMT", allowed_users=None, rejected_users=None, anonymous_user=None, anonymous_password="", msg_login="Login successful.", msg_quit="Goodbye.")
 
   Same as :class:`pyftpdlib.authorizers.UnixAuthorizer` except for
   *anonymous_password* argument which must be specified when defining the

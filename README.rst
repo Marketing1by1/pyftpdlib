@@ -1,28 +1,36 @@
-.. image:: https://img.shields.io/pypi/dm/pyftpdlib.svg
-    :target: https://pypi.python.org/pypi/pyftpdlib/
-    :alt: Download this month
+.. image:: https://img.shields.io/travis/giampaolo/pyftpdlib/master.svg?maxAge=3600&label=Linux%20/%20OSX
+    :target: https://travis-ci.org/giampaolo/pyftpdlib
+    :alt: Linux tests (Travis)
 
-.. image:: https://img.shields.io/pypi/v/pyftpdlib.svg
+.. image:: https://img.shields.io/appveyor/ci/giampaolo/pyftpdlib/master.svg?maxAge=3600&label=Windows
+    :target: https://ci.appveyor.com/project/giampaolo/pyftpdlib
+    :alt: Windows tests (Appveyor)
+
+.. image:: https://coveralls.io/repos/github/giampaolo/pyftpdlib/badge.svg?branch=master
+    :target: https://coveralls.io/github/giampaolo/pyftpdlib?branch=master
+    :alt: Test coverage (coverall.io)
+
+.. image:: https://readthedocs.org/projects/pyftpdlib/badge/?version=latest
+    :target: http://pyftpdlib.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://img.shields.io/pypi/v/pyftpdlib.svg?label=pypi
     :target: https://pypi.python.org/pypi/pyftpdlib/
     :alt: Latest version
+
+.. image:: https://img.shields.io/github/stars/giampaolo/pyftpdlib.svg
+    :target: https://github.com/giampaolo/pyftpdlib/
+    :alt: Github stars
 
 .. image:: https://img.shields.io/pypi/l/pyftpdlib.svg
     :target: https://pypi.python.org/pypi/pyftpdlib/
     :alt: License
 
-.. image:: https://img.shields.io/travis/giampaolo/pyftpdlib/master.svg
-    :target: https://travis-ci.org/giampaolo/pyftpdlib
-    :alt: Travis
-
-.. image:: https://coveralls.io/repos/giampaolo/pyftpdlib/badge.svg?branch=master&service=github
-    :target: https://coveralls.io/github/giampaolo/pyftpdlib?branch=master
-    :alt: Test coverage (coverall.io)
-
 Quick links
 ===========
 
 - `Home <https://github.com/giampaolo/pyftpdlib>`__
-- `Documentation <http://pythonhosted.org/pyftpdlib/>`__
+- `Documentation <http://pyftpdlib.readthedocs.io>`__
 - `Download <https://pypi.python.org/pypi/pyftpdlib/>`__
 - `Blog <http://grodola.blogspot.com/search/label/pyftpdlib>`__
 - `Mailing list <http://groups.google.com/group/pyftpdlib/topics>`__
@@ -47,12 +55,12 @@ Features
 
 - Extremely **lightweight**, **fast** and **scalable** (see
   `why <https://github.com/giampaolo/pyftpdlib/issues/203>`__ and
-  `benchmarks <http://pythonhosted.org/pyftpdlib/benchmarks.html>`__).
+  `benchmarks <http://pyftpdlib.readthedocs.io/en/latest/benchmarks.html>`__).
 - Uses **sendfile(2)** (see `pysendfile <https://github.com/giampaolo/pysendfile>`__)
   system call for uploads.
 - Uses epoll() / kqueue() / select() to handle concurrency asynchronously.
 - ...But can optionally skip to a
-  `multiple thread / process <http://pythonhosted.org/pyftpdlib/tutorial.html#changing-the-concurrency-model>`__
+  `multiple thread / process <http://pyftpdlib.readthedocs.io/en/latest/tutorial.html#changing-the-concurrency-model>`__
   model (as in: you'll be free to block or use slow filesystems).
 - Portable: entirely written in pure Python; works with Python from **2.6** to
   **3.5** by using a single code base.
@@ -63,21 +71,21 @@ Features
 - Support for virtual users and virtual filesystem.
 - Extremely flexible system of "authorizers" able to manage both "virtual" and
   "real" users on on both
-  `UNIX <http://pythonhosted.org/pyftpdlib/tutorial.html#unix-ftp-server>`__
+  `UNIX <http://pyftpdlib.readthedocs.io/en/latest/tutorial.html#unix-ftp-server>`__
   and
-  `Windows <http://pythonhosted.org/pyftpdlib/tutorial.html#windows-ftp-server>`__.
+  `Windows <http://pyftpdlib.readthedocs.io/en/latest/tutorial.html#windows-ftp-server>`__.
 - `Test coverage <https://github.com/giampaolo/pyftpdlib/blob/master/pyftpdlib/test/>`__
   close to 100%.
 
 Performances
 ============
 
-Depite being written in an intepreted language, pyftpdlib has transfer rates
+Despite being written in an intepreted language, pyftpdlib has transfer rates
 superior to most common UNIX FTP servers. It also scales better since whereas
 vsftpd and proftpd use multiple processes to achieve concurrency, pyftpdlib
 will only use one process and handle concurrency asynchronously (see
 `the C10K problem <http://www.kegel.com/c10k.html>`__). Here are some
-`benchmarks <https://github.com/giampaolo/pyftpdlib/blob/master/test/bench.py>`__
+`benchmarks <https://github.com/giampaolo/pyftpdlib/blob/master/scripts/ftpbench>`__
 made against my Linux 3.0.0 box, Intel core-duo 3.1 Ghz:
 
 pyftpdlib vs. proftpd 1.3.4
@@ -126,7 +134,7 @@ pyftpdlib vs. vsftpd 2.3.5
 | 300 concurrent clients (QUIT)           |    0.03 secs   | 0.01 secs      | +0.14x      |
 +-----------------------------------------+----------------+----------------+-------------+
 
-For more benchmarks see `here <http://pythonhosted.org/pyftpdlib/benchmarks.html>`__.
+For more benchmarks see `here <http://pyftpdlib.readthedocs.io/en/latest/benchmarks.html>`__.
 
 Quick start
 ===========
@@ -138,7 +146,7 @@ Quick start
     >>> from pyftpdlib.servers import FTPServer
     >>>
     >>> authorizer = DummyAuthorizer()
-    >>> authorizer.add_user("user", "12345", "/home/giampaolo", perm="elradfmw")
+    >>> authorizer.add_user("user", "12345", "/home/giampaolo", perm="elradfmwMT")
     >>> authorizer.add_anonymous("/home/nobody")
     >>>
     >>> handler = FTPHandler
@@ -156,7 +164,7 @@ Quick start
     [I 13-02-19 10:56:27] 127.0.0.1:34179-[user] RETR /home/giampaolo/.vimrc completed=1 bytes=1700 seconds=0.001
     [I 13-02-19 10:56:39] 127.0.0.1:34179-[user] FTP session closed (disconnect).
 
-`other code samples <http://pythonhosted.org/pyftpdlib/tutorial.html>`__
+`other code samples <http://pyftpdlib.readthedocs.io/en/latest/tutorial.html>`__
 
 Donate
 ======
@@ -176,11 +184,15 @@ Don't want to donate money? Then maybe you could
 In case you're using pyftpdlib into a software of yours
 `mail me <http://grodola.blogspot.com/p/about.html>`_ and I'll add your
 software to the
-`adoptions list <http://pythonhosted.org/pyftpdlib/adoptions.html>`__.
+`adoptions list <http://pyftpdlib.readthedocs.io/en/latest/adoptions.html>`__.
 
 Timeline
 ========
 
+- 2018-05-04: version `1.5.4 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.5.4.tar.gz>`__ released.
+- 2017-11-04: version `1.5.3 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.5.3.tar.gz>`__ released.
+- 2017-04-06: version `1.5.2 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.5.2.tar.gz>`__ released.
+- 2016-05-02: version `1.5.1 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.5.1.tar.gz>`__ released.
 - 2015-12-13: version `1.5.0 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.5.0.tar.gz>`__ released.
 - 2014-06-03: version `1.4.0 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.4.0.tar.gz>`__ released.
 - 2014-04-12: version `1.3.1 <https://pypi.python.org/packages/source/p/pyftpdlib/pyftpdlib-1.3.1.tar.gz>`__ released.
@@ -238,23 +250,23 @@ Timeline
 Trademarks
 ==========
 
-Some famous trademarks which adopted pyftpdlib (`complete list <http://pythonhosted.org/pyftpdlib/adoptions.html>`__).
+Some famous trademarks which adopted pyftpdlib (`complete list <http://pyftpdlib.readthedocs.io/en/latest/adoptions.html>`__).
 
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/chrome.jpg
+.. image:: docs/images/chrome.jpg
   :target: http://www.google.com/chrome
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/debian.png
+.. image:: docs/images/debian.png
   :target: http://www.debian.org
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/fedora.png
+.. image:: docs/images/fedora.png
   :target: http://fedoraproject.org/
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/freebsd.gif
+.. image:: docs/images/freebsd.gif
   :target: http://www.freebsd.org
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/openerp.jpg
+.. image:: docs/images/openerp.jpg
   :target: http://openerp.com
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/bazaar.jpg
+.. image:: docs/images/bazaar.jpg
   :target: http://bazaar-vcs.org
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/bitsontherun.png
+.. image:: docs/images/bitsontherun.png
   :target: http://www.bitsontherun.com
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/openvms.png
+.. image:: docs/images/openvms.png
   :target: http://www.openvms.org/
-.. image:: http://pyftpdlib.googlecode.com/svn-history/wiki/images/smartfile.jpg
+.. image:: docs/images/smartfile.png
   :target: https://www.smartfile.com/

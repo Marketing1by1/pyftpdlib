@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2016 Giampaolo Rodola' <g.rodola@gmail.com>.
+# Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
@@ -15,6 +15,13 @@ try:
     import grp
 except ImportError:
     pwd = grp = None
+try:
+    from os import scandir  # py 3.5
+except ImportError:
+    try:
+        from scandir import scandir  # requires "pip install scandir"
+    except ImportError:
+        scandir = None
 
 from ._compat import PY3
 from ._compat import u
@@ -246,6 +253,11 @@ class AbstractedFS(object):
         assert isinstance(path, unicode), path
         return os.listdir(path)
 
+    def listdirinfo(self, path):
+        """List the content of a directory."""
+        assert isinstance(path, unicode), path
+        return os.listdir(path)
+
     def rmdir(self, path):
         """Remove the specified directory."""
         assert isinstance(path, unicode), path
@@ -274,6 +286,12 @@ class AbstractedFS(object):
         # on python 2 we might also get bytes from os.lisdir()
         # assert isinstance(path, unicode), path
         return os.stat(path)
+
+    def utime(self, path, timeval):
+        """Perform a utime() call on the given path"""
+        # utime expects a int/float (atime, mtime) in seconds
+        # thus, setting both access and modify time to timeval
+        return os.utime(path, (timeval, timeval))
 
     if hasattr(os, 'lstat'):
         def lstat(self, path):

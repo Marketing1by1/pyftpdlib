@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2016 Giampaolo Rodola' <g.rodola@gmail.com>.
+# Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
@@ -14,6 +14,8 @@ import sys
 import time
 import traceback
 import warnings
+from datetime import datetime
+
 try:
     import pwd
     import grp
@@ -70,6 +72,8 @@ def _import_sendfile():
                 return sf.sendfile
             except ImportError:
                 pass
+    return None
+
 
 sendfile = _import_sendfile()
 
@@ -110,6 +114,10 @@ proto_cmds = {
     'MDTM': dict(
         perm='l', auth=True, arg=True,
         help='Syntax: MDTM [<SP> path] (file last modification time).'),
+    'MFMT': dict(
+        perm='T', auth=True, arg=True,
+        help='Syntax: MFMT <SP> timeval <SP> path (file update last '
+             'modification time).'),
     'MLSD': dict(
         perm='l', auth=True, arg=None,
         help='Syntax: MLSD [<SP> path] (list directory).'),
@@ -248,6 +256,7 @@ def _support_hybrid_ipv6():
             return not sock.getsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY)
     except (socket.error, AttributeError):
         return False
+
 
 SUPPORTS_HYBRID_IPV6 = _support_hybrid_ipv6()
 
@@ -404,7 +413,7 @@ class PassiveDTP(Acceptor):
     def handle_timeout(self):
         if self.cmd_channel.connected:
             self.cmd_channel.respond("421 Passive data channel timed out.",
-                                     logfun=logging.info)
+                                     logfun=logger.info)
         self.close()
 
     def handle_error(self):
@@ -619,7 +628,7 @@ class DTPHandler(AsyncChat):
             # as per server config
             return False
         if self.file_obj is None or not hasattr(self.file_obj, "fileno"):
-            # direcotry listing or unusual file obj
+            # directory listing or unusual file obj
             return False
         if self.cmd_channel._current_type != 'i':
             # text file transfer (need to transform file content on the fly)
@@ -870,11 +879,14 @@ class DTPHandler(AsyncChat):
         if not self._closed:
             # RFC-959 says we must close the connection before replying
             AsyncChat.close(self)
+
+            # Close file object before responding successfully to client
+            if self.file_obj is not None and not self.file_obj.closed:
+                self.file_obj.close()
+
             if self._resp:
                 self.cmd_channel.respond(self._resp[0], logfun=self._resp[1])
 
-            if self.file_obj is not None and not self.file_obj.closed:
-                self.file_obj.close()
             if self._idler is not None and not self._idler.cancelled:
                 self._idler.cancel()
             if self.file_obj is not None:
@@ -1265,7 +1277,7 @@ class FTPHandler(AsyncChat):
         if self.tcp_no_delay:
             try:
                 self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-            except socket.error:
+            except socket.error as err:
                 debug(
                     "call: FTPHandler.__init__, err on TCP_NODELAY %r" % err,
                     self)
@@ -1484,6 +1496,17 @@ class FTPHandler(AsyncChat):
                         mode, arg = arg.split(' ', 1)
                         arg = self.fs.ftp2fs(arg)
                         kwargs = dict(mode=mode)
+                elif cmd == 'MFMT':
+                    if ' ' not in arg:
+                        msg = "Syntax error: command needs two arguments."
+                        self.respond("501 " + msg)
+                        self.log_cmd(cmd, "", 501, msg)
+                        return
+                    else:
+                        timeval, arg = arg.split(' ', 1)
+                        arg = self.fs.ftp2fs(arg)
+                        kwargs = dict(timeval=timeval)
+
                 else:  # LIST, NLST, MLSD, MLST
                     arg = self.fs.ftp2fs(arg or self.fs.cwd)
 
@@ -1812,7 +1835,7 @@ class FTPHandler(AsyncChat):
     # is >= logging.INFO
     log_cmds_list = ["DELE", "RNFR", "RNTO", "MKD", "RMD", "CWD",
                      "XMKD", "XRMD", "XCWD",
-                     "REIN", "SITE CHMOD"]
+                     "REIN", "SITE CHMOD", "MFMT"]
 
     def log_cmd(self, cmd, arg, respcode, respstr):
         """Log commands and responses in a standardized format.
@@ -2437,7 +2460,7 @@ class FTPHandler(AsyncChat):
                     self.data_channel.close()
                     self.data_channel = None
                     self.respond("426 Transfer aborted via ABOR.",
-                                 logfun=logging.info)
+                                 logfun=logger.info)
                     resp = "226 ABOR command successful."
                 else:
                     self.data_channel.close()
@@ -2464,7 +2487,7 @@ class FTPHandler(AsyncChat):
             # login sequence again.
             self.flush_account()
             msg = 'Previous account information was flushed'
-            self.respond('331 %s, send password.' % msg, logfun=logging.info)
+            self.respond('331 %s, send password.' % msg, logfun=logger.info)
         self.username = line
 
     def handle_auth_failed(self, msg, password):
@@ -2656,6 +2679,56 @@ class FTPHandler(AsyncChat):
         else:
             self.respond("213 %s" % lmt)
             return path
+
+    def ftp_MFMT(self, path, timeval):
+        """ Sets the last modification time of file to timeval
+        3307 style timestamp (YYYYMMDDHHMMSS) as defined in RFC-3659.
+        On success return the modified time and file path, else None.
+        """
+        # Note: the MFMT command is not a formal RFC command
+        # but stated in the following MEMO:
+        # https://tools.ietf.org/html/draft-somers-ftp-mfxx-04
+        # this is implemented to assist with file synchronization
+
+        line = self.fs.fs2ftp(path)
+
+        if len(timeval) != len("YYYYMMDDHHMMSS"):
+            why = "Invalid time format; expected: YYYYMMDDHHMMSS"
+            self.respond('550 %s.' % why)
+            return
+        if not self.fs.isfile(self.fs.realpath(path)):
+            self.respond("550 %s is not retrievable" % line)
+            return
+        if self.use_gmt_times:
+            timefunc = time.gmtime
+        else:
+            timefunc = time.localtime
+        try:
+            # convert timeval string to epoch seconds
+            epoch = datetime.utcfromtimestamp(0)
+            timeval_datetime_obj = datetime.strptime(timeval, '%Y%m%d%H%M%S')
+            timeval_secs = (timeval_datetime_obj - epoch).total_seconds()
+        except ValueError:
+            why = "Invalid time format; expected: YYYYMMDDHHMMSS"
+            self.respond('550 %s.' % why)
+            return
+        try:
+            # Modify Time
+            self.run_as_current_user(self.fs.utime, path, timeval_secs)
+            # Fetch Time
+            secs = self.run_as_current_user(self.fs.getmtime, path)
+            lmt = time.strftime("%Y%m%d%H%M%S", timefunc(secs))
+        except (ValueError, OSError, FilesystemError) as err:
+            if isinstance(err, ValueError):
+                # It could happen if file's last modification time
+                # happens to be too old (prior to year 1900)
+                why = "Can't determine file's last modification time"
+            else:
+                why = _strerror(err)
+            self.respond('550 %s.' % why)
+        else:
+            self.respond("213 Modify=%s; %s." % (lmt, line))
+            return (lmt, path)
 
     def ftp_MKD(self, path):
         """Create the specified directory.
@@ -2860,7 +2933,8 @@ class FTPHandler(AsyncChat):
     def ftp_FEAT(self, line):
         """List all new features supported as defined in RFC-2398."""
         features = set(['UTF8', 'TVFS'])
-        features.update([feat for feat in ('EPRT', 'EPSV', 'MDTM', 'SIZE')
+        features.update([feat for feat in
+                         ('EPRT', 'EPSV', 'MDTM', 'MFMT', 'SIZE')
                          if feat in self.proto_cmds])
         features.update(self._extra_feats)
         if 'MLST' in self.proto_cmds or 'MLSD' in self.proto_cmds:
@@ -3418,7 +3492,9 @@ if SSL is not None:
         # - SSLv3 has several problems and is now dangerous
         # - Disable compression to prevent CRIME attacks for OpenSSL 1.0+
         #   (see https://github.com/shazow/urllib3/pull/309)
-        ssl_options = SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 | SSL.OP_NO_COMPRESSION
+        ssl_options = SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3
+        if hasattr(SSL, "OP_NO_COMPRESSION"):
+            ssl_options |= SSL.OP_NO_COMPRESSION
         ssl_context = None
 
         # overridden attributes

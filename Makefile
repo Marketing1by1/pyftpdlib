@@ -2,122 +2,182 @@
 # To use a specific Python version run:
 # $ make install PYTHON=python3.3
 
-PYTHON=python
-TSCRIPT=pyftpdlib/test/runner.py
-FLAGS=
+PYTHON = python
+TSCRIPT = pyftpdlib/test/runner.py
+ARGS =
+DEV_DEPS = \
+	check-manifest \
+	coverage \
+	flake8 \
+	mock==1.0.1 \
+	pep8 \
+	pyflakes \
+	setuptools \
+	sphinx
+TEST_DEPS = \
+	nose \
+	psutil \
+	pyopenssl \
+	pysendfile \
+	unittest2
+
+# In not in a virtualenv, add --user options for install commands.
+INSTALL_OPTS = `$(PYTHON) -c "import sys; print('' if hasattr(sys, 'real_prefix') else '--user')"`
 
 all: test
 
-clean:
-	rm -f `find . -type f -name \*.py[co]`
-	rm -f `find . -type f -name .\*~`
-	rm -f `find . -type f -name \*.orig`
-	rm -f `find . -type f -name \*.bak`
-	rm -f `find . -type f -name \*.rej`
-	rm -rf `find . -type d -name __pycache__`
-	rm -rf *.egg-info
-	rm -rf .tox
-	rm -rf build
-	rm -rf dist
-	rm -rf docs/_build
-	rm -rf htmlcov
-	rm -rf .coverage
+clean:  ## Remove all build files.
+	rm -rf `find . -type d -name __pycache__ \
+		-o -type f -name \*.bak \
+		-o -type f -name \*.orig \
+		-o -type f -name \*.pyc \
+		-o -type f -name \*.pyd \
+		-o -type f -name \*.pyo \
+		-o -type f -name \*.rej \
+		-o -type f -name \*.so \
+		-o -type f -name \*.~ \
+		-o -type f -name \*\$testfn`
+	rm -rf \
+		*.core \
+		*.egg-info \
+		*\$testfile* \
+		.coverage \
+		.tox \
+		build/ \
+		dist/ \
+		docs/_build/ \
+		htmlcov/ \
+		tmp/
 
-build: clean
-	$(PYTHON) setup.py build
+install:  ## Install this package.
+	# make sure setuptools is installed (needed for 'develop' / edit mode)
+	$(PYTHON) -c "import setuptools"
+	$(PYTHON) setup.py develop $(INSTALL_OPTS)
 
-install: build
-	$(PYTHON) setup.py develop --user
+uninstall:  ## Uninstall this package.
+	cd ..; $(PYTHON) -m pip uninstall -y -v pyftpdlib || true
+	$(PYTHON) scripts/purge_installation.py
 
-uninstall:
-	cd ..; $(PYTHON) -m pip uninstall -y -v pyftpdlib
+install-pip:  ## (only if necessary)
+	$(PYTHON) -c \
+		"import sys, ssl, os, pkgutil, tempfile, atexit; \
+		sys.exit(0) if pkgutil.find_loader('pip') else None; \
+		pyexc = 'from urllib.request import urlopen' if sys.version_info[0] == 3 else 'from urllib2 import urlopen'; \
+		exec(pyexc); \
+		ctx = ssl._create_unverified_context() if hasattr(ssl, '_create_unverified_context') else None; \
+		kw = dict(context=ctx) if ctx else {}; \
+		req = urlopen('https://bootstrap.pypa.io/get-pip.py', **kw); \
+		data = req.read(); \
+		f = tempfile.NamedTemporaryFile(suffix='.py'); \
+		atexit.register(f.close); \
+		f.write(data); \
+		f.flush(); \
+		print('downloaded %s' % f.name); \
+		code = os.system('%s %s --user' % (sys.executable, f.name)); \
+		f.close(); \
+		sys.exit(code);"
 
-# useful deps which are nice to have while developing / testing
-setup-dev-env: install-git-hooks
-	python -c  "import urllib2, ssl; \
-				context = ssl._create_unverified_context() if hasattr(ssl, '_create_unverified_context') else None; \
-				kw = dict(context=context) if context else {}; \
-				r = urllib2.urlopen('https://bootstrap.pypa.io/get-pip.py', **kw); \
-				open('/tmp/get-pip.py', 'w').write(r.read());"
-	$(PYTHON) /tmp/get-pip.py --user
-	rm /tmp/get-pip.py
-	$(PYTHON) -m pip install --user --upgrade pip
-	$(PYTHON) -m pip install --user --upgrade \
-		coverage \
-		flake8 \
-		ipdb \
-		mock==1.0.1 \
-		nose \
-		pep8 \
-		pyflakes \
-		pyopenssl \
-		pysendfile \
-		sphinx \
-		sphinx-pypi-upload \
-		unittest2 \
+setup-dev-env:  ## Install GIT hooks, pip, test deps (also upgrades them).
+	${MAKE} install-git-hooks
+	${MAKE} install-pip
+	$(PYTHON) -m pip install $(INSTALL_OPTS) --upgrade pip
+	$(PYTHON) -m pip install $(INSTALL_OPTS) --upgrade $(TEST_DEPS)
+	$(PYTHON) -m pip install $(INSTALL_OPTS) --upgrade $(DEV_DEPS)
 
-test: install
-	$(PYTHON) $(TSCRIPT)
+test:  ## Run all tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) $(TSCRIPT)
 
-test-functional: install
-	$(PYTHON) pyftpdlib/test/test_functional.py
+test-functional:  ## Run functional FTP tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_functional.py
 
-test-functional-ssl: install
-	$(PYTHON) pyftpdlib/test/test_functional_ssl.py
+test-functional-ssl:  ## Run functional FTPS tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_functional_ssl.py
 
-test-authorizers: install
-	$(PYTHON) pyftpdlib/test/test_authorizers.py
+test-servers:  ## Run tests for FTPServer and its subclasses.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_servers.py
 
-test-filesystems: install
-	$(PYTHON) pyftpdlib/test/test_filesystems.py
+test-authorizers:  ## Run tests for authorizers.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_authorizers.py
 
-test-ioloop: install
-	$(PYTHON) pyftpdlib/test/test_ioloop.py
+test-filesystems:  ## Run filesystem tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_filesystems.py
 
-test-servers: install
-	$(PYTHON) pyftpdlib/test/test_servers.py
+test-ioloop:  ## Run IOLoop tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_ioloop.py
 
-# Run a specific test by name; e.g. "make test-by-name retr" will run
-# all test methods containing "retr" in their name.
-# Requires "pip install nose".
-test-by-name: install
-	@$(PYTHON) -m nose pyftpdlib/test/test_*.py --nocapture -v -m $(filter-out $@,$(MAKECMDGOALS))
+test-misc:  ## Run miscellaneous tests.
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) pyftpdlib/test/test_misc.py
 
-coverage: install
-	# Note: coverage options are controlled by .coveragerc file
+test-by-name:  ## e.g.: make test-by-name ARGS=pyftpdlib.test.test_functional.TestFtpStoreData
+	${MAKE} install
+	PYTHONWARNINGS=all $(PYTHON) -m unittest -v $(ARGS)
+
+test-coverage:  ## Run test coverage.
+	${MAKE} install
 	rm -rf .coverage htmlcov
-	$(PYTHON) -m coverage run $(TSCRIPT)
+	PYTHONWARNINGS=all $(PYTHON) -m coverage run $(TSCRIPT)
 	$(PYTHON) -m coverage report
 	@echo "writing results to htmlcov/index.html"
 	$(PYTHON) -m coverage html
 	$(PYTHON) -m webbrowser -t htmlcov/index.html
 
-pep8:
+pep8:  ## PEP8 linter.
 	@git ls-files | grep \\.py$ | xargs $(PYTHON) -m pep8
 
-pyflakes:
-	# ignore doctests
-	export PYFLAKES_NODOCTEST=1 && \
+pyflakes:  ## Pyflakes linter.
+	@export PYFLAKES_NODOCTEST=1 && \
 		git ls-files | grep \\.py$ | xargs $(PYTHON) -m pyflakes
 
-flake8:
+flake8:  ## flake8 linter.
 	@git ls-files | grep \\.py$ | xargs $(PYTHON) -m flake8
 
-upload-src: clean
+check-manifest:  ## Inspect MANIFEST.in file.
+	$(PYTHON) -m check_manifest -v $(ARGS)
+
+upload-src:  ## Upload source on PYPI.
+	${MAKE} clean
 	$(PYTHON) setup.py sdist upload
 
-# Build and upload doc on https://pythonhosted.org/pyftpdlib/.
-# Requires "pip install sphinx-pypi-upload".
-upload-docs:
-	cd docs; make html
-	$(PYTHON) setup.py upload_sphinx --upload-dir=docs/_build/html
-
-# git-tag a new release
-git-tag-release:
+git-tag-release:  ## Git-tag a new release.
 	git tag -a release-`python -c "import setup; print(setup.VERSION)"` -m `git rev-list HEAD --count`:`git rev-parse --short HEAD`
-	@echo "now run 'git push --tags'"
+	git push --follow-tags
 
-# install GIT pre-commit hook
-install-git-hooks:
+install-git-hooks:  ## Install GIT pre-commit hook
 	ln -sf ../../.git-pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
+
+grep-todos:  ## Look for TODOs in source files.
+	git grep -EIn "TODO|FIXME|XXX"
+
+pre-release:  ## All the necessary steps before making a release.
+	${MAKE} clean
+	$(PYTHON) -c \
+		"from pyftpdlib import __ver__ as ver; \
+		doc = open('docs/index.rst').read(); \
+		history = open('HISTORY.rst').read(); \
+		assert ver in history, '%r not in HISTORY.rst' % ver; \
+		assert 'XXXX' not in history; \
+		"
+	$(PYTHON) setup.py sdist
+
+release:  ## Creates a release (tar.gz + upload + git tag release).
+	${MAKE} pre-release
+	$(PYTHON) -m twine upload dist/*  # upload tar on PYPI
+	${MAKE} git-tag-release
+
+generate-manifest:  ## Generates MANIFEST.in file.
+	$(PYTHON) scripts/generate_manifest.py > MANIFEST.in
+
+print-announce:  ## Print announce of new release.
+	@$(PYTHON) scripts/print_announce.py
+
+help: ## Display callable targets.
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

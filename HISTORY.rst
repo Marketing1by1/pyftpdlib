@@ -1,6 +1,36 @@
 Bug tracker at https://github.com/giampaolo/pyftpdlib/issues
 
-Version: 1.6.0 - XXXX-XX-XX
+Version: 1.5.4 - 2018-05-04
+===========================
+
+**Enhancements**
+
+- #463: FTPServer class can now be used as a context manager.
+
+**Bug fixes**
+
+- #431: Ctrl-C doesn't exit `python -m pyftpdlib` on Windows.
+- #436: ThreadedFTPServer.max_cons is evaluated threading.activeCount(). If
+  the user uses threads of its own it will consume the number of max_cons.
+- #447: ThreadedFTPServer and MultiprocessFTPServer do not join() tasks which
+  are no longer consuming resources.
+
+Version: 1.5.3 - 2017-11-04
+===========================
+
+**Enhancements**
+
+- #201: implemented SITE MFMT command which changes file modification time.
+  (patch by Tahir Ijaz)
+- #327: add username and password command line options
+- #433: documentation moved to readthedocs: http://pyftpdlib.readthedocs.io
+
+**Bug fixes**
+
+- #403: fix duplicated output log. (path by PonyPC)
+- #414: Respond successfully to STOR only after closing file handle.
+
+Version: 1.5.2 - 2017-04-06
 ===========================
 
 **Enhancements**
@@ -9,6 +39,13 @@ Version: 1.6.0 - XXXX-XX-XX
   features. New TLS_FTPHandler's ssl_options class attribute was added.
 - #380: AbstractedFS.listdir() can now return also a generator (not only a
   list).
+
+**Bug fixes**
+
+- #367: ThreadedFTPServer no longer hangs if close_all() is called.
+- #394: ETIMEDOUT is not treated as an alias for "connection lost".
+- #400: QUIT can raise KeyError in case the user hasn't logged in yet and sends
+  QUIT command.
 
 
 Version: 1.5.1 - 2016-05-02

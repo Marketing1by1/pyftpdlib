@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2007-2016 Giampaolo Rodola' <g.rodola@gmail.com>.
+# Copyright (C) 2007 Giampaolo Rodola' <g.rodola@gmail.com>.
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
 import contextlib
 import ftplib
+import inspect
 import socket
+import sys
 
+from pyftpdlib import handlers
 from pyftpdlib import servers
+from pyftpdlib.test import close_client
 from pyftpdlib.test import configure_logging
 from pyftpdlib.test import HOST
 from pyftpdlib.test import PASSWD
@@ -18,7 +22,6 @@ from pyftpdlib.test import TIMEOUT
 from pyftpdlib.test import unittest
 from pyftpdlib.test import USER
 from pyftpdlib.test import VERBOSITY
-from pyftpdlib.test.test_functional import TestCallbacks
 from pyftpdlib.test.test_functional import TestCornerCases
 from pyftpdlib.test.test_functional import TestFtpAbort
 from pyftpdlib.test.test_functional import TestFtpAuthentication
@@ -46,7 +49,7 @@ class TestFTPServer(unittest.TestCase):
 
     def tearDown(self):
         if self.client is not None:
-            self.client.close()
+            close_client(self.client)
         if self.server is not None:
             self.server.stop()
 
@@ -62,6 +65,10 @@ class TestFTPServer(unittest.TestCase):
             self.client = self.client_class(timeout=TIMEOUT)
             self.client.connect(ip, port)
             self.client.login(USER, PASSWD)
+
+    def test_ctx_mgr(self):
+        with servers.FTPServer((HOST, 0), handlers.FTPHandler) as server:
+            self.assertIsNotNone(server)
 
 
 # =====================================================================
@@ -122,8 +129,8 @@ class TestFtpAbortThreadMixin(ThreadFTPTestMixin, TestFtpAbort):
 #     pass
 
 
-class TestCallbacksThreadMixin(ThreadFTPTestMixin, TestCallbacks):
-    pass
+# class TestCallbacksThreadMixin(ThreadFTPTestMixin, TestCallbacks):
+#     pass
 
 
 class TestIPv4EnvironmentThreadMixin(ThreadFTPTestMixin, TestIPv4Environment):
@@ -220,5 +227,23 @@ configure_logging()
 remove_test_files()
 
 
+def main():
+    test_classes = set()
+    for name, obj in inspect.getmembers(sys.modules[__name__]):
+        if inspect.isclass(obj):
+            if obj.__module__ == '__main__' and name.startswith('Test'):
+                test_classes.add(obj)
+
+    loader = unittest.TestLoader()
+    suite = []
+    for test_class in test_classes:
+        suite.append(loader.loadTestsFromTestCase(test_class))
+
+    runner = unittest.TextTestRunner(verbosity=VERBOSITY)
+    result = runner.run(unittest.TestSuite(unittest.TestSuite(suite)))
+    success = result.wasSuccessful()
+    sys.exit(0 if success else 1)
+
+
 if __name__ == '__main__':
-    unittest.main(verbosity=VERBOSITY)
+    main()

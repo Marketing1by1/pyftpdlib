@@ -9,25 +9,21 @@ that can be done with pyftpdlib.  Some of them are included in
 `demo <https://github.com/giampaolo/pyftpdlib/blob/master/demo/>`__
 directory of pyftpdlib source distribution.
 
-Building a Base FTP server
-==========================
+A Base FTP server
+=================
 
-The script below is a basic configuration, and it's probably the best starting
-point for understanding how things work. It uses the base
+The script below uses a basic configuration and it's probably the best
+starting point to understand how things work. It uses the base
 `DummyAuthorizer <api.html#pyftpdlib.authorizers.DummyAuthorizer>`__
-for adding a bunch of "virtual" users. It also sets a limit for connections by
-overriding
-`FTPServer.max_cons <api.html#pyftpdlib.servers.FTPServer.max_cons>`__
-and
-`FTPServer.max_cons_per_ip <api.html#pyftpdlib.servers.FTPServer.max_cons_per_ip>`__,
-attributes which are intended to set limits for maximum connections to handle
-simultaneously and maximum connections from the same IP address. Overriding
-these variables is always a good idea (they default to ``0``, or "no limit")
-since they are a good workaround for avoiding DoS attacks.
+for adding a bunch of "virtual" users, sets a limit for
+`incoming connections <api.html#pyftpdlib.servers.FTPServer.max_cons>`__
+and a range of `passive ports <api.html#pyftpdlib.handlers.FTPHandler.passive_ports>`__.
 
 `source code <https://github.com/giampaolo/pyftpdlib/blob/master/demo/basic_ftpd.py>`__
 
 .. code-block:: python
+
+    import os
 
     from pyftpdlib.authorizers import DummyAuthorizer
     from pyftpdlib.handlers import FTPHandler
@@ -39,7 +35,7 @@ since they are a good workaround for avoiding DoS attacks.
 
         # Define a new user having full r/w permissions and a read-only
         # anonymous user
-        authorizer.add_user('user', '12345', '.', perm='elradfmwM')
+        authorizer.add_user('user', '12345', '.', perm='elradfmwMT')
         authorizer.add_anonymous(os.getcwd())
 
         # Instantiate FTP handler class
@@ -72,15 +68,12 @@ since they are a good workaround for avoiding DoS attacks.
 Logging management
 ==================
 
-Starting from version 1.0.0 pyftpdlib uses
+pyftpdlib uses the
 `logging <http://docs.python.org/library/logging.html logging>`__
 module to handle logging. If you don't configure logging pyftpdlib will write
-it to stderr by default (coloured if you're on POSIX). You can override the
-default behavior and, say, log to a file. What you have to bear in mind is that
-you should do that *before* calling serve_forever(). Examples.
-
-Logging to a file
-^^^^^^^^^^^^^^^^^
+logs to stderr.
+In order to configure logging you should do it *before* calling serve_forever().
+Example logging to a file:
 
 .. code-block:: python
 
@@ -91,7 +84,7 @@ Logging to a file
     from pyftpdlib.authorizers import DummyAuthorizer
 
     authorizer = DummyAuthorizer()
-    authorizer.add_user('user', '12345', '.', perm='elradfmwM')
+    authorizer.add_user('user', '12345', '.', perm='elradfmwMT')
     handler = FTPHandler
     handler.authorizer = authorizer
 
@@ -100,51 +93,59 @@ Logging to a file
     server = FTPServer(('', 2121), handler)
     server.serve_forever()
 
+DEBUG logging
+^^^^^^^^^^^^^
 
-Differences between logging.INFO and logging.DEBUG
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Starting from  1.0.0 logs are a lot less verbose than before. By default they
-look like this:
-
-::
-
-    [I 13-02-01 19:04:56] 127.0.0.1:49243-[] FTP session opened (connect)
-    [I 13-02-01 19:04:56] 127.0.0.1:49243-[user] USER 'user' logged in.
-    [I 13-02-01 19:04:56] 127.0.0.1:49243-[user] RETR /home/giampaolo/svn/pyftpdlib/tmp-pyftpdlib completed=1 bytes=9803392 seconds=0.025
-    [I 13-02-01 19:04:56] 127.0.0.1:49243-[user] FTP session closed (disconnect).
-
-
-To get the old behavior and log all commands and responses exchanged by client
-and server use:
+You may want to enable DEBUG logging to observe commands and responses
+exchanged by client and server. DEBUG logging will also log internal errors
+which may occur on socket related calls such as ``send()`` and ``recv()``.
+To enable DEBUG logging from code use:
 
 .. code-block:: python
 
     logging.basicConfig(level=logging.DEBUG)
 
+To enable DEBUG logging from command line use:
 
-Now they will look like this:
+.. code-block:: bash
+
+    python -m pyftpdlib -D
+
+DEBUG logs look like this:
 
 ::
 
-    [I 13-02-01 19:05:42] 127.0.0.1:37303-[] FTP session opened (connect)
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[] -> 220 pyftpdlib 1.0.0 ready.
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[] <- USER user
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[] -> 331 Username ok, send password.
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] <- PASS ******
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] -> 230 Login successful.
-    [I 13-02-01 19:05:42] 127.0.0.1:37303-[user] USER 'user' logged in.
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] <- TYPE I
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] -> 200 Type set to: Binary.
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] <- PASV
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] -> 227 Entering passive mode (127,0,0,1,233,208).
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] <- retr tmp-pyftpdlib
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] -> 125 Data connection already open. Transfer starting.
-    [D 13-02-01 19:05:42] 127.0.0.1:37303-[user] -> 226 Transfer complete.
-    [I 13-02-01 19:05:42] 127.0.0.1:37303-[user] RETR /home/giampaolo/svn/pyftpdlib/tmp-pyftpdlib completed=1 bytes=1000000 seconds=0.003
-    [D 13-02-01 19:05:42] 127.0.0.1:54516-[user] <- QUIT
-    [D 13-02-01 19:05:42] 127.0.0.1:54516-[user] -> 221 Goodbye.
-    [I 13-02-01 19:05:42] 127.0.0.1:54516-[user] FTP session closed (disconnect).
+    [I 2017-11-07 12:03:44] >>> starting FTP server on 0.0.0.0:2121, pid=22991 <<<
+    [I 2017-11-07 12:03:44] concurrency model: async
+    [I 2017-11-07 12:03:44] masquerade (NAT) address: None
+    [I 2017-11-07 12:03:44] passive ports: None
+    [D 2017-11-07 12:03:44] poller: 'pyftpdlib.ioloop.Epoll'
+    [D 2017-11-07 12:03:44] authorizer: 'pyftpdlib.authorizers.DummyAuthorizer'
+    [D 2017-11-07 12:03:44] use sendfile(2): True
+    [D 2017-11-07 12:03:44] handler: 'pyftpdlib.handlers.FTPHandler'
+    [D 2017-11-07 12:03:44] max connections: 512
+    [D 2017-11-07 12:03:44] max connections per ip: unlimited
+    [D 2017-11-07 12:03:44] timeout: 300
+    [D 2017-11-07 12:03:44] banner: 'pyftpdlib 1.5.4 ready.'
+    [D 2017-11-07 12:03:44] max login attempts: 3
+    [I 2017-11-07 12:03:44] 127.0.0.1:37303-[] FTP session opened (connect)
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[] -> 220 pyftpdlib 1.0.0 ready.
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[] <- USER user
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[] -> 331 Username ok, send password.
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] <- PASS ******
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 230 Login successful.
+    [I 2017-11-07 12:03:44] 127.0.0.1:37303-[user] USER 'user' logged in.
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] <- TYPE I
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 200 Type set to: Binary.
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] <- PASV
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 227 Entering passive mode (127,0,0,1,233,208).
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] <- RETR tmp-pyftpdlib
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 125 Data connection already open. Transfer starting.
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 226 Transfer complete.
+    [I 2017-11-07 12:03:44] 127.0.0.1:37303-[user] RETR /home/giampaolo/IMG29312.JPG completed=1 bytes=1205012 seconds=0.003
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] <- QUIT
+    [D 2017-11-07 12:03:44] 127.0.0.1:37303-[user] -> 221 Goodbye.
+    [I 2017-11-07 12:03:44] 127.0.0.1:37303-[user] FTP session closed (disconnect).
 
 
 Changing log line prefix
@@ -152,13 +153,12 @@ Changing log line prefix
 
 .. code-block:: python
 
-    ...
     handler = FTPHandler
     handler.log_prefix = 'XXX [%(username)s]@%(remote_ip)s'
-    ...
+    server = FTPServer(('localhost', 2121), handler)
+    server.serve_forever()
 
-
-...log will now look like this:
+Logs will now look like this:
 
 ::
 
@@ -177,13 +177,7 @@ authenticating users and their passwords but storing clear-text passwords is of
 course undesirable. The most common way to do things in such case would be
 first creating new users and then storing their usernames + passwords as hash
 digests into a file or wherever you find it convenient. The example below shows
-how to easily create an encrypted account storage system by storing passwords
-as one-way hashes by using md5 algorithm. This could be easily done by using
-the *hashlib* module included with Python stdlib and by sub-classing the
-original `DummyAuthorizer <api.html#pyftpdlib.authorizers.DummyAuthorizer>`__
-class overriding its
-`validate_authentication() <api.html#pyftpdlib.authorizers.DummyAuthorizer.validate_authentication>`__
-method.
+how to storage passwords as one-way hashes by using md5 algorithm.
 
 `source code <https://github.com/giampaolo/pyftpdlib/blob/master/demo/md5_ftpd.py>`__
 
@@ -215,7 +209,7 @@ method.
         # get a hash digest from a clear-text password
         hash = md5('12345').hexdigest()
         authorizer = DummyMD5Authorizer()
-        authorizer.add_user('user', hash, os.getcwd(), perm='elradfmw')
+        authorizer.add_user('user', hash, os.getcwd(), perm='elradfmwMT')
         authorizer.add_anonymous(os.getcwd())
         handler = FTPHandler
         handler.authorizer = authorizer
@@ -378,7 +372,7 @@ seconds.
 
     def main():
         authorizer = DummyAuthorizer()
-        authorizer.add_user('user', '12345', os.getcwd(), perm='elradfmw')
+        authorizer.add_user('user', '12345', os.getcwd(), perm='elradfmwMT')
         authorizer.add_anonymous(os.getcwd())
 
         dtp_handler = ThrottledDTPHandler
@@ -408,7 +402,7 @@ module, which is required in order to run the code below.
 `TLS_FTPHandler <api.html#pyftpdlib.handlers.TLS_FTPHandler>`__
 class requires at least a ``certfile`` to be specified and optionally a
 ``keyfile``.
-`Apache FAQs <http://www.modssl.org/docs/2.7/ssl*faq.html#ToC24>`__ provide
+`Apache FAQs <https://httpd.apache.org/docs/2.4/ssl/ssl_faq.html#selfcert>`__ provide
 instructions on how to generate them. If you don't care about having your
 personal self-signed certificates you can use the one in the demo directory
 which include both and is available
@@ -430,7 +424,7 @@ which include both and is available
 
     def main():
         authorizer = DummyAuthorizer()
-        authorizer.add_user('user', '12345', '.', perm='elradfmw')
+        authorizer.add_user('user', '12345', '.', perm='elradfmwMT')
         authorizer.add_anonymous('.')
         handler = TLS_FTPHandler
         handler.certfile = 'keycert.pem'
@@ -455,7 +449,7 @@ A small example which shows how to use callback methods via
 
     from pyftpdlib.handlers import FTPHandler
     from pyftpdlib.servers import FTPServer
-    from pyftpdlib.servers import DummyAuthorizer
+    from pyftpdlib.authorizers import DummyAuthorizer
 
 
     class MyHandler(FTPHandler):
@@ -495,7 +489,7 @@ A small example which shows how to use callback methods via
 
     def main():
         authorizer = DummyAuthorizer()
-        authorizer.add_user('user', '12345', homedir='.', perm='elradfmw')
+        authorizer.add_user('user', '12345', homedir='.', perm='elradfmwMT')
         authorizer.add_anonymous(homedir='.')
 
         handler = MyHandler
